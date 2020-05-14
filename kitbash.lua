@@ -26,13 +26,96 @@
 
         It would be a REALLY good idea to backup the target.obj before running kitbash.lua in case anything
         goes horribly pear shaped.  Remember, any time you try to kitbash, you can break things.
+
+    Variables:
+        new_TRIS    INT     Number of TRIs in new_gizmos.obj
+        new_VT      INT     Number of VTs in new_gizmos.obj
+        num_args    INT     Number of command line arguments sent
+        orig_TRIS   INT     Number of original TRIs in target.obj
+        orig_VT     INT     Number of original VTs in target.obj
+    
+    Functions:
+        print_syntax()      Prints the syntax message
 ]]
 
--- Read in command line parameters
+function print_syntax (errCode, wrongString)
+    --[[
+        Usage:
+            when ever you want the syntax of this script to be displayed
 
--- Print a syntax message if no parameters are set
+        Returns:
+            Nothing but what is printed
 
--- Print error message if improper number of args were sent
+        Arguments:
+            errCode: let's us know if we need to print an error with the syntax
+                0:  it's all good
+                1:  An invalid number of arguments was sent
+                2:  An invalid switch was sent
+            wrongString: something to help the user figure out how they screwed up.
+        Variables:
+            Also, nope.
+    ]]
+    if errCode==1 then
+        print ("An invalid number of arguments were provided.")
+    elseif errCode==2 then
+        print ("'"..wrongString.."' is not a valid switch.")
+    end
+        print ("Usage: KITBASH.LUA <optional switches> target.obj new_gizmo.obj")
+        print ("Optional Switches\n\t-s\t<Print summary upon completion.>")
+end
+
+function check_switch(t_arg)
+    --[[
+        Usage:
+            checks the t_arg string to verify it's a valid switch for kitbash
+        
+        Returns:
+            An integer based on the switch as follows:
+            0   Not a valid switch
+            1   The -s switch was sent
+        Arguments:
+            t_arg       STRING      The command line argument we're checking
+        
+        Variables:
+            fChar       STRING      First character of t_arg
+            swChar      STRING      The second character of t_arg (hopefully a valid switch)
+    ]]
+    local fChar = t_arg:sub(1,1) -- fChar is the first character of t_arg
+    local swChar = t_arg:sub(2,2) -- swChar is the second character of t_arg
+
+    if fChar == "-" then -- if fChar is a dash then at least we're starting off well
+        if swChar == "s" then -- swChar is an 's' then that's the summary switch!
+            return 1
+        else -- we only have 1 switch so we'll fail anything else
+        end
+    else -- if fChar is not a dash it's not a switch
+        return 0
+    end
+end
+
+-- Set up Error Constants so this will be easier to read
+local Err_Invalid_Num_Args = 1          -- An invalid number of command line arguments was sent.
+local Err_Invalid_Switch_Sent = 2       -- An invalid switch was sent in the command line arguments.
+
+-- Set up variables
+
+local wantsSummary = 0    -- defaults to non summary mode
+local num_args = #arg     -- number of command line arguments sent
+
+-- Print a syntax message if no parameters are set, or error out if an invalid number of arguments were sent
+
+if num_args == 0 then print_syntax () 
+elseif num_args == 1 or num_args > 3 then print_syntax (Err_Invalid_Num_Args) end 
+
+-- If there are three arguments the first should be a switch
+
+if num_args == 3 then
+    if check_switch (arg[1]) == 1 then wantsSummary = 1 else
+        print_syntax(Err_Invalid_Switch_Sent, arg[1]) -- We'll let them know that whatever switch they think they sent is not a switch
+    end
+end
+
+-- If there are two arguments let's check them for valid file extensions
 
 -- Check the files exist and error out if not.
 
