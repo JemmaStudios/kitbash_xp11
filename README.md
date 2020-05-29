@@ -22,3 +22,9 @@ folder.  Backup c400_cockpit.obj and then run 'kitbash.lua -s c400_cockpit.obj e
 Warnings: 
 It is important that the gizmos.obj file has already been uv mapped to the same texture of
 target.obj.  If you don't know what that even means, you need to rethink using this script.
+
+Donations:
+I'm donating this work to the x-Plane 11 community under the GNU General Public License v3.0
+(see License).  If you are compelled to donate cash in return, that would be great. I'm happy
+to accept whatever disposable income you have at https://www.paypal.me/jemmastudios
+Thanks in advance. - Jeffory
