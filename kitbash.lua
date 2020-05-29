@@ -26,22 +26,9 @@
 
         It would be a REALLY good idea to backup the target.obj before running kitbash.lua in case anything
         goes horribly pear shaped.  Remember, any time you try to kitbash, you can break things.
-
-    Variables:
-        new_TRIS        INT         Number of TRIs in new_gizmos.obj
-        new_VT          INT         Number of VTs in new_gizmos.obj
-        num_args        INT         Number of command line arguments sent
-        orig_TRIS       INT         Number of original TRIs in target.obj
-        orig_VT         INT         Number of original VTs in target.obj
-        target_fName    STRING      Name of target.obj file
-        gizmo_fName     STRING      Name of new_gizmos.obj file
-
-    Functions:
-        print_syntax()      Prints the syntax message
-        check_switch()      Checks if an argument is a valid switch
-        check_obj_file()    Checks if argument if valid obj file name
-        load_obj_file()     Reads the obj file into a table
 ]]
+
+local   verString = "ver. 1.0.0"
 
 function print_syntax (errCode, wrongString)
     --[[
@@ -131,9 +118,6 @@ end
 
 function load_obj_file(fName)
     --[[
-        ver 1.0.0
-        2020-APR-25
-        
         parameters:
             fName = name of an obj8 file
 
@@ -151,6 +135,28 @@ function load_obj_file(fName)
     local current_lines = {} -- the table for the obj text of the current aircraft
     for line in io.lines() do -- load each line of the obj text
         table.insert(current_lines, line)
+    end
+    io.close(current_file) -- we have the data now, so we can close this file.
+    return current_lines
+end
+
+function write_obj_file(fName, tLines)
+    --[[
+        parameters:
+            fName   STRING  name of an obj8 file
+            tLines  TABLE   of lines to be written to obj8 file
+
+        functionality:
+        Opens an OBJ file and overwrites it with the new tLines
+
+    ]]
+    
+    local i                                                 -- an index we'll use later
+    local current_file = assert(io.open(fName, "w"))        -- file object of fName
+    io.output(current_file)
+
+    for i, line in ipairs(tLines) do -- load each line of the obj text
+        current_file:write (line.."\n")
     end
     io.close(current_file) -- we have the data now, so we can close this file.
     return current_lines
@@ -203,6 +209,194 @@ function get_objInfo (tLines)
     return tInfo
 end
 
+function get_objHeader (tLines, tInfo, gInfo)
+    --[[
+        Usage:
+            parses through the tLines table and outputs all the lines up to the POINT_COUNTS line
+            then adds an adjusted POINTS_COUNT line with the sum of the target & gizmo VTs & TRIS
+
+        Parameters:
+            tLines          TABLE       comprised of each line read from a target OBJ8 file
+            tInfo           TABLE       info (VT & TRIS) for the target OBJ8 file
+            gInfo           TABLE       info (VT & TRIS) for the gizmo OBJ8 file
+        
+    ]]
+
+    local stillWorking = true   -- we're working until we're done, duh.
+    local i = 1                 -- we'll start at the top
+    local hdrLines = {}         -- the list of new header lines we will generate
+    local tWords = {}           -- we'll start with an empty table of words.
+    local tmpL = ""             -- initialize a temp string
+    local tW = ""               -- initialize another temp string
+    local newVTs = tInfo["VTs"] + gInfo["VTs"]               -- sum of VTs from each object
+    local newTRIS = tInfo["TRIS"] + gInfo["TRIS"]               -- sum of TRIS from each object
+
+    while stillWorking do       -- Let's go through the rest
+        tmpL = tLines[i]        -- Load the line from the table
+       -- print (tmpL) 
+        if tmpL ~= nil then
+            if string.match(tmpL,'POINT_COUNTS') == "POINT_COUNTS" then -- we found the end of the header
+                for tW in string.gmatch(tmpL, "%S+") do     -- break up the line
+                    table.insert(tWords, tW)
+                end
+                -- now we'll change the new point counts to be the sum of both target+gizmo VTs & target+gizmo TRIS and default the rest
+                hdrLines[i] = "POINT_COUNTS "..newVTs.." "..tWords[3].." "..tWords[4].." "..newTRIS
+                stillWorking = false   -- and also we're done with the header so we'll move on
+            else
+                hdrLines[i] = tmpL     -- we haven't gotten to point count so we add the current line and move on
+            end
+        else
+            stillWorking = false
+        end
+        tWords = {}             -- reset the tWords table or it just gets really really big.
+        i = i + 1               -- Let's not forget to increment the index so we don't read the same line over and over forever.
+    end 
+    return hdrLines  -- send back the lines with the header information.
+end
+
+function get_objVTs (new_tLines, objLines)
+    --[[
+        Usage:
+            parses through the tLines table and outputs
+
+        Parameters:
+            new_tLines          TABLE       of lines that will precede the new VT lines. In other words, what we'll append to
+            objLines            TABLE       of lines that need to be parsed for all VT lines.
+        
+    ]]
+
+    local stillWorking = true   -- we're working until we're done, duh.
+    local i = 1                 -- we'll start at the top
+    local tmpL = ""             -- initialize a temp string
+
+
+    while stillWorking do       -- Let's go through the rest
+        tmpL = objLines[i]        -- Load the line from the table
+       -- print (tmpL) 
+        if tmpL ~= nil then
+            if string.match(tmpL,'VT') == "VT" then -- we found a VT line
+                new_tLines[#new_tLines+1] = tmpL    -- so we'll append it to new_tLines
+            end
+        else
+            stillWorking = false
+        end
+        i = i + 1               -- Let's not forget to increment the index so we don't read the same line over and over forever.
+    end 
+    return new_tLines -- send back the lines with the VTs added.
+end
+
+function get_objIDX (new_tLines, objLines, tInfo)
+    --[[
+        Usage:
+            parses objLines and appends any IDX or IDX10 line to new_tLines and returns tLines. If tInfo is
+            sent, then we are adding the Gizmo IDXs so we'll need to add the value of tInfo["VTs"] to each
+            gizmo VTs value within the IDX/IDX10 line (if tInfo["VTs"]=4000 and we get an 'IDX 1000' line, our output must be 'IDX 5000')
+
+        Parameters:
+            new_tLines      TABLE   of lines that precede the new IDX lines.
+            objLines        TABLE   of lines that will be parsed for IDX and IDX10 lines
+            tInfo           TABLE   (optional) with target.obj information required if we are parsing the gizmos object only
+    ]]
+
+    tInfo = tInfo or 0          -- let's see if we get tInfo, if not we'll set it as a flag.
+
+    local stillWorking = true   -- we're working until we're done, duh.
+    local i = 1                 -- we'll start at the top of the objLines stack (I know it's not really a stack per se)
+    local j = 1                 -- index for parsing IDX string
+    local tmpL = ""             -- initialize a temp string
+    local tWords = {}           -- we'll start with an empty table of words
+    local tW = ""               -- initialize another temp string
+    local tIDX = ""             -- initialize another temp string again
+
+    while stillWorking do       -- Let's go through the rest
+        tmpL = objLines[i]      -- Load the line from the table
+       -- print (tmpL) 
+        if tmpL ~= nil then
+            if string.match(tmpL,'IDX') == "IDX" or string.match(tmpL,'IDX10') == "IDX10" then -- we found an IDX/IDX10 line
+                if tInfo == 0 then                      -- if we didn't get tInfo then we're just appending as is
+                    new_tLines[#new_tLines+1] = tmpL    
+                else                                    -- looks like we have to deal with math again.
+                    for tW in string.gmatch(tmpL, "%S+") do     -- break up the line
+                        table.insert(tWords, tW)        -- create a table for each word/number in the line
+                    end
+                    tIDX = tWords[1]                    -- first item is going to be IDX or IDX10
+                    for j=2, #tWords, 1 do
+                        tIDX = tIDX .. "\t" .. (tWords[j]+tInfo["VTs"]) -- add target VT number to each gizmo VT reference
+                    end
+                    new_tLines[#new_tLines+1] = tIDX    -- and will append the modified line
+                    tWords = {}                         -- reset tWords (you idiot.  That took me an hour to figure out, again.)
+                end
+            end
+        else
+            stillWorking = false
+        end
+        i = i + 1               -- Let's not forget to increment the index so we don't read the same line over and over forever.
+    end 
+    return new_tLines -- send back the lines with the VTs added.
+    
+end
+
+function get_objFooter (new_tLines, objLines, tInfo)
+    --[[
+        Usage:
+            parses objLines to past the last IDX line then appends all remaining lines to new_tLines then returns new_tLines.
+            If tInfo is present we are parsing a gizmo object so each TRIS entry after IDX lines will get the value of
+            tInfo["TRIS"] (if tInfo["TRIS"] = 14000 and a new ANIM section includes TRIS 10 36, it will be changed to TRIS 14010 36)
+
+        Parameters:
+            new_tLines      TABLE   of lines that precede the ANIM section of the obj file
+            objLines        TABLE   of lines from an OBJ file
+            tInfo           TABLE   (optional) containing VTs TRIs and other info about the target.obj file
+    ]]
+
+    tInfo = tInfo or 0          -- let's see if we get tInfo, if not we'll set it as a flag.
+
+    local stillWorking = true   -- we're working until we're done, duh.
+    local areWeThereYet = 0     -- We don't want to start processing lines until after we have finished all the IDX lines. (0-no IDX yet, 1 - we found the IDX section)
+    local i = 1                 -- we'll start at the top of the objLines stack (I know it's not really a stack per se)
+    local j, k                  -- indices for parsing TRIS string
+    local tmpL = ""             -- initialize a temp string
+    local tWords = {}           -- we'll start with an empty table of words
+    local tW = ""               -- initialize another temp string
+    local tIDX = ""             -- initialize another temp string again
+
+    while stillWorking do       -- Let's go through the rest
+        tmpL = objLines[i]      -- Load the line from the table
+       -- print (tmpL) 
+        if tmpL ~= nil then     -- we're not at the EOF yet.
+            if string.match(tmpL,'IDX') == "IDX" or string.match(tmpL,'IDX10') == "IDX10" then -- we found an IDX/IDX10 line
+                areWeThereYet = 1                       -- we need to know that we got to the IDX section.
+            elseif areWeThereYet == 1 then              
+                -- We only get here if we are past all the IDX/IDX10 lines
+                if tInfo == 0 then                      -- if we didn't get tInfo then we're just appending as is
+                    new_tLines[#new_tLines+1] = tmpL    
+                else                      
+                    if string.match(tmpL,'TRIS') == "TRIS"  then -- we found a TRIS line
+                            -- looks like we have to deal with math again.
+                        for tW in string.gmatch(tmpL, "%S+") do     -- break up the line
+                            table.insert(tWords, tW)        -- create a table for each word/number in the line
+                        end  -- for
+                        -- since these lines may be indented we need to capture all the chars in front of the TRIS keyword
+                        j, k = string.find(tmpL,'TRIS')
+                        --[[The line format is 'TRIS [TRIS index] [no of TRIS]' so we only need to change the
+                            [TRIS index] for the gizmo line by adding the value of tInfo["TRIS"]  ]]
+                        tIDX = string.sub(tmpL, 1, k) .. "\t" .. (tWords[2]+tInfo["TRIS"]) .. "\t" .. tWords[3]                  
+                        new_tLines[#new_tLines+1] = tIDX    -- and will append the modified line
+                        tWords = {}                         -- reset tWords (you idiot.  That took me an hour to figure out, again.)
+                    else   -- not TRIS
+                        new_tLines[#new_tLines+1] = tmpL    -- Not a TRIS line so we append it unaltered.
+                    end     -- TRIS if
+                end         -- tInfo if 
+            end             -- stringmatch IDX if
+        else
+            stillWorking = false
+        end         -- tmpL NIL if
+        i = i + 1               -- Let's not forget to increment the index so we don't read the same line over and over forever.
+    end         -- while stillWorking
+    return new_tLines -- send back the lines with the VTs added.
+    
+end   -- getObjFooter
+
 function print_objInfo (objInfo)
     --[[
         Usage:
@@ -211,8 +405,18 @@ function print_objInfo (objInfo)
     local i = ""
     local c = ""
     for i,c in pairs(objInfo) do
-        print("["..i.."]:\t"..c)
+        print("[\""..i.."\"]:\t"..c)
     end
+end
+
+function print_lines (tLines)
+    --[[
+        Usage:
+            outputs each line of tLines
+    ]]
+    local i = ""
+    local l = ""
+    for i, l in ipairs(tLines) do print (l) end
 end
 
 -- Set up Error Constants so this will be easier to read
@@ -222,15 +426,16 @@ local Err_Invalid_OBJ_File = 3          -- An invalid OBJ file name.
 
 -- Set up variables
 
-local wantsSummary = 0      -- defaults to non summary mode
-local num_args = #arg       -- number of command line arguments sent
-local target_fName          -- Name of target.obj file
-local gizmo_fName           -- Name of new_gizmos.obj file
-local target_lines = {}     -- Table with each line of the original target.obj file
-local gizmo_lines = {}      -- Table with each line of the new_gizmos.obj file
-local new_lines = {}        -- Table with each line of the kitbashed obj files
-local target_objInfo={}     -- Table with VT and TRIS info for target.obj
-local gizmo_objInfo={}      -- Table with VT and TRIS info for new_gizmos.obj
+local wantsSummary = 0          -- defaults to non summary mode
+local num_args = #arg           -- number of command line arguments sent
+local target_fName              -- Name of target.obj file
+local gizmo_fName               -- Name of new_gizmos.obj file
+local target_lines = {}         -- Table with each line of the original target.obj file
+local gizmo_lines = {}          -- Table with each line of the new_gizmos.obj file
+local new_lines = {}            -- Table with each line of the kitbashed obj files
+local target_objInfo={}         -- Table with VT and TRIS info for target.obj
+local gizmo_objInfo={}          -- Table with VT and TRIS info for new_gizmos.obj
+local new_target_lines = {}     -- Table used to build the final.obj
 
 -- Print a syntax message if no parameters are set, or error out if an invalid number of arguments were sent
 
@@ -271,9 +476,17 @@ else
     end
 end
 
--- Check the files exist and error out if not.
-print ("Target file: "..target_fName)
-print ("Gizmo file: "..gizmo_fName)
+-- Let's double check that they absolutely positively want to do this
+io.stdout:write ("This will overwrite "..target_fName..". Do you have a backup and do you want to continue? (Type Y to continue, anything else with cancel.): ")
+if string.upper(string.sub(io.stdin:read(),1,1)) ~= "Y" then 
+    print ("\nKITBASH.LUA stopped by user before anything could be broken. (Probably very wise.)")
+    os.exit() 
+end
+
+--[[I know I've let milliseconds go by while we read in command line arguments, but I have no idea how long someone will take to type Y or N, so I'm not counting it
+    for benchmarking purposes.  So tough.]]
+local timeStamp = os.time()     -- Load up the current date and time for reporting.
+local startTime = os.clock()    -- for benchmarking
 
 -- Read in target.obj
 target_lines = load_obj_file (target_fName)
@@ -283,33 +496,68 @@ gizmo_lines = load_obj_file (gizmo_fName)
 
 -- Get the original VT & TRIS count from target.obj
 target_objInfo = get_objInfo (target_lines)
-print("Target info:")
-print_objInfo (target_objInfo)
 
 -- Calculate the VT & TRIS count from new_gizmos.obj
 gizmo_objInfo = get_objInfo (gizmo_lines)
-print ("Gizmos info:")
-print_objInfo(gizmo_objInfo)
 
--- Write the header to target.obj
-
--- Update the new VT & TRIS count
+-- Write the header to new_target_lines which also updates the new vts & tris count
+new_target_lines = get_objHeader (target_lines, target_objInfo, gizmo_objInfo)
 
 -- Write the original target.obj VT's
+new_target_lines[#new_target_lines+1] = "\n# Original VTs from "..target_fName.." below by KITBASH.LUA\n" -- add a little message
+new_target_lines = get_objVTs (new_target_lines, target_lines)
 
 -- Append the new_gizmo VTs to target.obj
 
+new_target_lines[#new_target_lines+1] = "\n# New VTs from "..gizmo_fName.." added below by KITBASH.LUA\n" -- add a little message
+new_target_lines = get_objVTs (new_target_lines, gizmo_lines)
+
 -- Write the original target.obj IDX
+
+new_target_lines[#new_target_lines+1] = "\n# Original IDX/IDX10s from "..target_fName.." below by KITBASH.LUA\n" -- add a little message
+new_target_lines = get_objIDX (new_target_lines, target_lines)
 
 --[[ Read each IDX (or IDX10 line) from new_gizmos and add the original VT count from target.obj
 and add to each IDX ref of new_gizmos ]]
 
--- Append updated new_gizmo.obj IDX (or IDX10) to target.obj
+new_target_lines[#new_target_lines+1] = "\n# New IDXs from "..gizmo_fName.." added below by KITBASH.LUA\n" -- add a little message
+new_target_lines = get_objIDX (new_target_lines, gizmo_lines, target_objInfo)
 
--- Read each ANIM line from new_gizmos.obj and add orig TRIS count from target.obj to each ref.
+-- Write the original target ANIM lines and other footer information.
+
+new_target_lines[#new_target_lines+1] = "\n# Original ANIM section from "..target_fName.." below by KITBASH.LUA\n" -- add a little message
+new_target_lines = get_objFooter (new_target_lines, target_lines)
 
 -- Appended updated new_gizmo.obj ANIM lines to target.obj
 
--- Close everything up.
+new_target_lines[#new_target_lines+1] = "\n# New ANIM section from "..gizmo_fName.." below by KITBASH.LUA" -- add a little message
+new_target_lines = get_objFooter (new_target_lines, gizmo_lines, target_objInfo)
+
+new_target_lines[#new_target_lines+1] = "\n# This file was kitbashed using KITBASH.LUA " .. verString .. " on " .. os.date("%x %X", timeStamp)
+new_target_lines[#new_target_lines+1] = "# Donations gratefully accepted at http://paypal.me/jemmastudios"
+-- Save the new file and button things up.
+
+write_obj_file (target_fName, new_target_lines)
+
+-- print_lines (new_target_lines)
+
 
 -- Print out summary.  Maybe something cool about original and new Vt counts, etc.
+print ("Finished kitbashing! (So much easier than text editing!)")
+if wantsSummary == 1 then -- print out a bunch of stuff that hopefully looks cool
+    print ("Target File:\t\t\t\t"..target_fName)
+    print ("No of lines in original Target File:\t"..#target_lines)
+    print ("No of VTs in original Target File:\t"..target_objInfo["VTs"])
+    print ("No of TRIs in original Target File:\t"..target_objInfo["TRIS"])
+    print ()
+    print ("Gizmo File:\t\t\t\t"..gizmo_fName)
+    print ("No of lines in Gizmo File:\t\t"..#gizmo_lines)
+    print ("No of VTs added from Gizmo File:\t"..gizmo_objInfo["VTs"])
+    print ("No of TRIs added from Gizmo File:\t"..gizmo_objInfo["TRIS"])
+    print ()
+    print ("No of new lines in "..target_fName..":\t"..#new_target_lines)
+    print ("No of new VTS in "..target_fName..":\t"..target_objInfo["VTs"]+gizmo_objInfo["VTs"])
+    print ("No of new TRIS in "..target_fName..":\t"..target_objInfo["TRIS"]+gizmo_objInfo["TRIS"])
+    print ()
+    print ("Completed in " .. os.clock()-startTime .. " seconds.")
+end
