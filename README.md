@@ -14,6 +14,11 @@ and have the object you want to append (we'll call that gizmos.obj) then open yo
 window, navigate to the folder and type: kitbash.lua
 You'll get all the directions you need from there.
 
+Example:
+Included in the archive is example_gizmo.obj which adds lights and manipulators to x-plane 11
+Columbia 400 G1000 Com buttons panel.  You can copy example_gizmo.obj to your Columbia 400
+folder.  Backup c400_cockpit.obj and then run 'kitbash.lua -s c400_cockpit.obj example_gizmo.obj'
+
 Warnings: 
 It is important that the gizmos.obj file has already been uv mapped to the same texture of
 target.obj.  If you don't know what that even means, you need to rethink using this script.
