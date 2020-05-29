@@ -18,6 +18,8 @@ Example:
 Included in the archive is example_gizmo.obj which adds lights and manipulators to x-plane 11
 Columbia 400 G1000 Com buttons panel.  You can copy example_gizmo.obj to your Columbia 400
 folder.  Backup c400_cockpit.obj and then run 'kitbash.lua -s c400_cockpit.obj example_gizmo.obj'
+You'll also need to replace the Columbia 400/cockpit/-PANELS-/PANEL.png file with the file in 
+this archive, so the indicator lights display.
 
 Warnings: 
 It is important that the gizmos.obj file has already been uv mapped to the same texture of
