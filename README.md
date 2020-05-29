@@ -30,3 +30,7 @@ I'm donating this work to the x-Plane 11 community under the GNU General Public 
 (see License).  If you are compelled to donate cash in return, that would be great. I'm happy
 to accept whatever disposable income you have at https://www.paypal.me/jemmastudios
 Thanks in advance. - Jeffory
+
+Support:
+E-mail me at jemmasimulations@gmail.com
+Join our discord!! https://discord.gg/xpEnWXA
