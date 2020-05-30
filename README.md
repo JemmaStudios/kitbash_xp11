@@ -11,7 +11,10 @@ tablet into an aircraft cockpit object.
 
 The easy way to use it is to make a backup of the cockpit object first (we'll call it target.obj)
 and have the object you want to append (we'll call that gizmos.obj) then open your command
-window, navigate to the folder and type: kitbash.lua
+window, navigate to the folder and...
+Windows users type: kitbash.lua
+Linux users type: lua kitbash.lua
+
 You'll get all the directions you need from there.
 
 Example:
