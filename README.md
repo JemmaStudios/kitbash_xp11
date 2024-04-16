@@ -1,5 +1,6 @@
 # kitbash_xp11
-A standalone lua script that appends an existing x-plane 11 object with the contents of a second object.
+***WORKS WITH XP11 or XP12 or any future versions that stick with OBJ8 file spec***
+A standalone lua script that appends an existing x-plane OBJ8 object with the contents of a second object.
 
 Requires Lua 5.1 or later available at 
 Windows users: https://github.com/rjpcomputing/luaforwindows/releases
