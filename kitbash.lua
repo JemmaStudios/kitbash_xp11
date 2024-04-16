@@ -1,6 +1,6 @@
 --[[
     KITBASH.LUA
-    ver 1.0.0
+    ver 1.1.0
     2020-May-07
 
     Distributed under CC BY-NC-SA 4.0 
@@ -26,9 +26,11 @@
 
         It would be a REALLY good idea to backup the target.obj before running kitbash.lua in case anything
         goes horribly pear shaped.  Remember, any time you try to kitbash, you can break things.
+
+    
 ]]
 
-local   verString = "ver. 1.0.0"
+local   verString = "ver. 1.1.0"
 
 function print_syntax (errCode, wrongString)
     --[[
@@ -531,6 +533,7 @@ new_target_lines = get_objFooter (new_target_lines, target_lines)
 -- Appended updated new_gizmo.obj ANIM lines to target.obj
 
 new_target_lines[#new_target_lines+1] = "\n# New ANIM section from "..gizmo_fName.." below by KITBASH.LUA" -- add a little message
+new_target_lines[#new_target_lines+1] = "\n\tATTR_draw_enable"
 new_target_lines = get_objFooter (new_target_lines, gizmo_lines, target_objInfo)
 
 new_target_lines[#new_target_lines+1] = "\n# This file was kitbashed using KITBASH.LUA " .. verString .. " on " .. os.date("%x %X", timeStamp)
