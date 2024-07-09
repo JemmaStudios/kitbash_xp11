@@ -27,10 +27,17 @@
         It would be a REALLY good idea to backup the target.obj before running kitbash.lua in case anything
         goes horribly pear shaped.  Remember, any time you try to kitbash, you can break things.
 
-    
+    ver 1.1.0 
+    2024-04-16
+    Added ATTR_draw_enabled in the kitbash anim section to counter act any ATTR_draw_disabled that were left behind the original obj.
+    Thanks to Khajit for finding this issue
+
+    ver 1.2.0
+    2024-07-09
+    Added ATTR_cockpit in kitbash anim section to counter any ATTR_no_cockpit switches left behind the original obj.
 ]]
 
-local   verString = "ver. 1.1.0"
+local   verString = "ver. 1.2.0"
 
 function print_syntax (errCode, wrongString)
     --[[
@@ -534,6 +541,7 @@ new_target_lines = get_objFooter (new_target_lines, target_lines)
 
 new_target_lines[#new_target_lines+1] = "\n# New ANIM section from "..gizmo_fName.." below by KITBASH.LUA" -- add a little message
 new_target_lines[#new_target_lines+1] = "\n\tATTR_draw_enable"
+new_target_lines[#new_target_lines+1] = "\n\tATTR_cockpit"
 new_target_lines = get_objFooter (new_target_lines, gizmo_lines, target_objInfo)
 
 new_target_lines[#new_target_lines+1] = "\n# This file was kitbashed using KITBASH.LUA " .. verString .. " on " .. os.date("%x %X", timeStamp)
